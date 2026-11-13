@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tally: a personal planner for students</title>
+<meta name="description" content="Tally is a personal desktop planner that turns your assignments and free time into a realistic schedule.">
+<style>
+  :root {
+    --bg: #fbfaf6;
+    --surface: #ffffff;
+    --text: #0b1b2e;
+    --muted: #4a5a6e;
+    --blue: #00274c;
+    --maize: #ffcb05;
+    --border: #d9dde3;
+    --link: #0a4a8a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1626;
+      --surface: #13233a;
+      --text: #eef2f7;
+      --muted: #b4c0d0;
+      --border: #2a3c57;
+      --link: #ffcb05;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header { background: var(--blue); color: #fff; border-bottom: 4px solid var(--maize); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+  header .wrap { padding-top: 28px; padding-bottom: 28px; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: 0.01em; }
+  header p { margin: 6px 0 0; color: #dbe4ee; }
+  main { padding: 28px 0 48px; }
+  h2 { font-size: 1.2rem; margin: 32px 0 8px; }
+  p, li { color: var(--text); }
+  ul { padding-left: 22px; }
+  a { color: var(--link); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 20px;
+  }
+  .muted { color: var(--muted); font-size: 0.92rem; }
+  footer { border-top: 1px solid var(--border); padding: 20px 0 40px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Tally</h1>
+    <p>A personal planner that fits your assignments into your real free time.</p>
+  </div>
+</header>
+<main class="wrap">
+  <p>Tally is a desktop app for one student's own use. It keeps a to-do list with due dates and time estimates, learns how long work really takes, and builds a schedule around the free time you choose. Everything is stored on your own computer.</p>
+
+  <h2>What it does</h2>
+  <ul>
+    <li>Keeps tasks, deadlines and time estimates for each course and term.</li>
+    <li>Shows what is due soon, what has the biggest grade impact, and what is a quick win.</li>
+    <li>Reads when you are busy on the calendars you pick, and places study blocks in the gaps, starting early.</li>
+    <li>Writes those blocks only to one calendar of its own, named "Planner Blocks".</li>
+  </ul>
+
+  <h2>How it uses Google Calendar</h2>
+  <p>With your permission, Tally asks Google for three things: your free and busy times on the calendars you choose (no event titles or details), the list of your calendar names so you can choose them, and the ability to create and manage the single calendar it creates itself. It does not read or change your other events. Details are in the <a href="privacy.html">Privacy Policy</a>.</p>
+
+  <div class="card">
+    <strong>Independent project.</strong>
+    <p class="muted" style="margin:6px 0 0">Tally is an independent personal project. It is not affiliated with, sponsored by or endorsed by the University of Michigan or Google.</p>
+  </div>
+</main>
+<footer>
+  <div class="wrap muted">
+    <a href="privacy.html">Privacy Policy</a>
+  </div>
+</footer>
+</body>
+</html>
