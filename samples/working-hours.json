@@ -1,0 +1,22 @@
+{
+  "min_block_minutes": 15,
+  "max_block_minutes": 120,
+  "buffer_minutes": 10,
+  "deadline_slack_minutes": 120,
+  "default_start": "09:00",
+  "class_cutoff": "18:00",
+  "days": {
+    "mon": { "start": "after_first_class", "end": "22:30" },
+    "tue": { "start": "after_first_class", "end": "22:30",
+             "unavailable": [{ "start": "08:30", "end": "10:30", "label": "gym" }] },
+    "wed": { "start": "after_first_class", "end": "22:30",
+             "unavailable": [{ "start": "16:00", "end": "17:00", "label": "gym" }] },
+    "thu": { "start": "after_first_class", "end": "20:30",
+             "unavailable": [{ "start": "08:30", "end": "10:30", "label": "gym" }] },
+    "fri": { "start": "after_first_class", "end": "20:30" },
+    "sat": { "end": "20:00",
+             "unavailable": [{ "start": "11:00", "end": "13:00", "label": "gym" }] },
+    "sun": { "start": "13:00", "end": "22:30",
+             "unavailable": [{ "start": "11:00", "end": "13:00", "label": "gym" }] }
+  }
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.db
+*.db-wal
+*.db-shm
+imports/*
+!imports/.gitkeep
+dist-electron/
+release/
+dist-mcp/
+.DS_Store
+
+# secrets and personal files (never commit)
+google-client.json
+.env
+.env.*
+Claude outputs/
+outputs/
+backups/
+*.sqlite

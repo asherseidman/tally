@@ -1,0 +1,7 @@
+{
+  "term": { "name": "Sample Term A", "start_date": "2026-08-31", "end_date": "2026-13-45" },
+  "items": [
+    { "course": "MATH 101", "title": "Homework 1", "type": "homwork", "due_date": "next Sunday", "grade_weight": 140 },
+    { "course": "", "title": "Quiz", "type": "quiz" }
+  ]
+}

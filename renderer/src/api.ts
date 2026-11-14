@@ -1,0 +1,121 @@
+import type { RatesView, RegroupReportDto, RatePreviewTask, RateApplyPreview, ReviewState, ReviewData, StepResult, InboxView, InboxCheckResult, PinResult, PendingState, TrayInfo, BannerDto, RecentNotice, SettingsView, TermRow, ArchivedTerm, BackupsView, GoogleStatus, ImportReview, ImportApplied, SchedulePreview, ScheduleApplied, QuickPreview, AppInfo, BusyResult, DryRunResult, ListInfo, PaintResult, TaskDetail, TaskDto, Target, TimerStatus, ViewsResult, WeekView, WindowRow } from '../../src/app/types';
+
+declare global {
+  interface Window {
+    planner: { invoke(channel: string, args?: unknown): Promise<{ ok: true; value: unknown } | { ok: false; error: string; code?: string }> };
+  }
+}
+
+/** An error from the main process: the message the engine produced, and a `code` when the window can act on it (google_reconnect). */
+export class ApiError extends Error {
+  constructor(message: string, public code?: string) { super(message); }
+}
+
+/** One call into the main process. Errors become thrown Error objects with the message the engine produced. */
+async function call<T>(channel: string, args?: unknown): Promise<T> {
+  if (!window.planner) throw new Error('The app bridge is missing (preload did not load). Run the app with: npm run dev');
+  const r = await window.planner.invoke(channel, args);
+  if (!r.ok) throw new ApiError(r.error, r.code);
+  return r.value as T;
+}
+
+export const api = {
+  /** hide the small quick-add window (handled by the main process) */
+  hideQuick: () => call<null>('quick.hide'),
+  trayInfo: () => call<TrayInfo>('tray.info'),
+  appInfo: () => call<AppInfo>('app.info'),
+  views: () => call<ViewsResult>('views.get', {}),
+  timerStatus: () => call<TimerStatus[]>('timer.status'),
+  timerStart: (id: number) => call<TimerStatus[]>('timer.start', { id }),
+  timerStop: () => call<{ stopped: { taskId: number; minutes: number; total: number }[]; timers: TimerStatus[] }>('timer.stop'),
+  addTask: (p: { title: string; parseTitle?: boolean; due?: string; list?: string; course?: string; est?: number; size?: { amount: number; unit: string } }) => call<TaskDto>('tasks.add', p),
+  parseQuick: (text: string, due?: string) => call<QuickPreview>('tasks.parseQuick', { text, due }),
+  tasks: (f: { list?: string; status?: 'open' | 'done' | 'all'; text?: string; limit?: number } = {}) => call<TaskDto[]>('tasks.list', f),
+  task: (id: number) => call<TaskDetail>('tasks.get', { id }),
+  editTask: (id: number, patch: Record<string, unknown>) => call<TaskDetail>('tasks.edit', { id, patch }),
+  done: (id: number) => call<{ next: number | null }>('tasks.done', { id }),
+  undone: (id: number) => call<{ ok: true }>('tasks.undone', { id }),
+  deleteTask: (id: number) => call<{ id: number; title: string }>('tasks.delete', { id }),
+  undelete: (id: number) => call<{ ok: true }>('tasks.undelete', { id }),
+  moveTask: (id: number, list: string) => call<{ ok: true }>('tasks.move', { id, list }),
+  reorderTasks: (listId: number | null, ids: number[]) => call<{ ok: true }>('tasks.reorder', { listId, ids }),
+  logWork: (id: number, minutes: number) => call<{ total: number }>('tasks.log', { id, minutes }),
+  addDep: (task: number, blockedBy: number) => call<TaskDetail>('deps.add', { task, blockedBy }),
+  removeDep: (task: number, blockedBy: number) => call<TaskDetail>('deps.remove', { task, blockedBy }),
+  lists: () => call<ListInfo[]>('lists.list'),
+  createList: (name: string) => call<ListInfo[]>('lists.create', { name }),
+  renameList: (name: string, newName: string) => call<ListInfo[]>('lists.rename', { name, newName }),
+  deleteList: (name: string) => call<{ tasksUnlinked: number; lists: ListInfo[] }>('lists.delete', { name }),
+  reorderLists: (ids: number[]) => call<ListInfo[]>('lists.reorder', { ids }),
+  useTerm: (name: string) => call<AppInfo>('terms.use', { name }),
+  week: (date: string) => call<WeekView>('availability.week', { date }),
+  paint: (target: Target, range: { start: string; end: string }) => call<PaintResult>('availability.paint', { target, range }),
+  erase: (target: Target, range: { start: string; end: string }) => call<PaintResult>('availability.erase', { target, range }),
+  block: (target: Target, range: { start: string; end: string }) => call<PaintResult>('availability.block', { target, range }),
+  restore: (target: Target, rows: WindowRow[]) => call<{ ok: true }>('availability.restore', { target, rows }),
+  clearDate: (date: string) => call<PaintResult>('availability.clearDate', { date }),
+  copyWeek: (from: string, to: string) => call<{ days: number }>('availability.copyWeek', { from, to }),
+  busy: (date: string) => call<BusyResult>('calendar.busy', { date }),
+  schedulePreview: (days: number, replan: boolean) => call<SchedulePreview>('schedule.preview', { days, replan }),
+  pinCreate: (taskId: number, start: string, end: string) => call<PinResult>('pins.create', { taskId, start, end }),
+  pinMove: (pinId: number, start: string, end: string) => call<PinResult>('pins.move', { pinId, start, end }),
+  pinUnpin: (pinId: number) => call<{ ok: true; taskId: number }>('pins.unpin', { pinId }),
+  pendingGet: () => call<PendingState>('pending.get'),
+  pendingApprove: (id: string) => call<{ message: string }>('pending.approve', { id, confirm: true }),
+  pendingReject: (id: string) => call<{ ok: true }>('pending.reject', { id }),
+  scheduleApply: (days: number, replan: boolean, fingerprint: string) => call<ScheduleApplied>('schedule.apply', { days, replan, fingerprint, confirm: true }),
+  importReview: (text: string, fileName: string) => call<ImportReview>('import.review', { text, fileName }),
+  importToggle: (id: string, num: number, included: boolean) => call<ImportReview>('import.toggle', { id, num, included }),
+  importEdit: (id: string, num: number, field: string, value: string) => call<ImportReview>('import.edit', { id, num, field, value }),
+  importClose: (id: string) => call<{ ok: true }>('import.close', { id }),
+  importApply: (id: string) => call<ImportApplied>('import.apply', { id, confirm: true }),
+  settings: () => call<SettingsView>('settings.get'),
+  rates: () => call<RatesView>('rates.get'),
+  ratesRegroupPreview: () => call<RegroupReportDto>('rates.regroupPreview'),
+  ratesRegroup: () => call<RatesView & { report: RegroupReportDto }>('rates.regroup'),
+  ratesSaveGroup: (key: string, unit: string, minutes: number, match: string) => call<RatesView>('rates.saveGroup', { key, unit, minutes, match }),
+  ratesSetMode: (key: string, mode: 'unit' | 'flat' | 'none', minutes?: number, match?: string) => call<RatesView>('rates.setMode', { key, mode, minutes, match }),
+  ratesResetGroup: (key: string) => call<RatesView>('rates.resetGroup', { key }),
+  ratesRename: (key: string, name: string) => call<RatesView>('rates.rename', { key, name }),
+  ratesMerge: (from: string, into: string) => call<RatesView>('rates.merge', { from, into }),
+  ratesSplit: (taskId: number) => call<RatesView>('rates.split', { taskId }),
+  ratesMove: (taskId: number, to: string) => call<RatesView>('rates.move', { taskId, to }),
+  ratesPreview: (course: string | null, match: string) => call<RatePreviewTask[]>('rates.preview', { course, match }),
+  ratesApplyPreview: (key: string, replaceManual: boolean) => call<RateApplyPreview>('rates.applyPreview', { key, replaceManual }),
+  ratesApply: (key: string, replaceManual: boolean, fingerprint: string) => call<RatesView & { changed: number }>('rates.apply', { key, replaceManual, fingerprint, confirm: true }),
+  ratesSetDefault: (index: number, minutes: number) => call<RatesView>('rates.setDefault', { index, minutes }),
+  ratesSetPointsMin: (minutes: number) => call<RatesView>('rates.setPointsMin', { minutes }),
+  ratesResetDefaults: () => call<RatesView>('rates.resetDefaults'),
+  ratesMultiplier: (key: string, enabled: boolean) => call<RatesView>('rates.multiplier', { key, enabled }),
+  ratesMultiplierReset: (key: string) => call<RatesView>('rates.multiplierReset', { key }),
+  reviewState: () => call<ReviewState>('review.state'),
+  reviewGet: () => call<ReviewData>('review.get'),
+  reviewApply: (step: 'a' | 'b' | 'c', decisions: unknown[]) => call<StepResult>('review.apply', { step, decisions }),
+  reviewFinish: () => call<ReviewState>('review.finish'),
+  inbox: () => call<InboxView>('inbox.get'),
+  inboxCheck: () => call<InboxCheckResult>('inbox.check'),
+  inboxUndo: (reminderId: string) => call<InboxView>('inbox.undo', { reminderId }),
+  inboxOpenPrivacy: () => call<{ ok: true }>('inbox.openPrivacy'),
+  setSetting: (key: string, value: string) => call<SettingsView>('settings.set', { key, value }),
+  undoChange: (id: number) => call<SettingsView>('changes.undo', { id }),
+  resetSetting: (key: string) => call<SettingsView>('settings.reset', { key }),
+  testNotification: () => call<RecentNotice>('notifications.test'),
+  banners: () => call<BannerDto[]>('banners.list'),
+  dismissBanner: (id: number) => call<{ ok: true }>('banners.dismiss', { id }),
+  checkNotifications: () => call<{ key: string; kind: string; title: string; body: string }[]>('notifications.check'),
+  recentNotifications: () => call<RecentNotice[]>('notifications.recent'),
+  terms: () => call<TermRow[]>('terms.list'),
+  createTerm: (name: string, start: string, end: string, makeCurrent: boolean) => call<TermRow[]>('terms.create', { name, start, end, makeCurrent }),
+  switchTerm: (name: string) => call<TermRow[]>('terms.switch', { name }),
+  archiveTerm: (name: string) => call<TermRow[]>('terms.archive', { name }),
+  unarchiveTerm: (name: string) => call<TermRow[]>('terms.unarchive', { name }),
+  archivedTerm: (id: number) => call<ArchivedTerm>('terms.archived', { id }),
+  backups: () => call<BackupsView>('backups.list'),
+  backupNow: () => call<BackupsView>('backups.now'),
+  restoreBackup: (name: string, typed: string) => call<{ safetyBackup: string | null; message: string }>('backups.restore', { name, typed }),
+  googleStatus: () => call<GoogleStatus>('google.status'),
+  googleCheck: () => call<GoogleStatus>('google.check'),
+  googleConnect: () => call<GoogleStatus>('google.connect'),
+  googleDisconnect: () => call<GoogleStatus>('google.disconnect'),
+  dryRun: (days = 14) => call<DryRunResult>('schedule.dryRun', { days }),
+};

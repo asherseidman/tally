@@ -1,0 +1,116 @@
+{
+  "name": "todo-planner",
+  "version": "0.1.0",
+  "description": "Tally: a personal to-do list and planner (Electron desktop app, own SQLite database).",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p renderer/tsconfig.json",
+    "import": "tsx src/cli/import.ts",
+    "seed": "tsx src/cli/seed.ts",
+    "demo": "tsx src/cli/demo.ts",
+    "show": "tsx src/cli/show.ts",
+    "verify:native": "tsx scripts/verify-native.ts",
+    "plan": "tsx src/cli/main.ts",
+    "timer": "tsx src/cli/main.ts timer",
+    "backup": "tsx src/cli/main.ts backup",
+    "export": "tsx src/cli/main.ts export",
+    "restore": "tsx src/cli/main.ts restore",
+    "multipliers": "tsx src/cli/main.ts multipliers",
+    "schedule": "tsx src/cli/main.ts schedule",
+    "replan": "tsx src/cli/main.ts replan",
+    "views": "tsx src/cli/main.ts views",
+    "dev": "node scripts/dev.mjs",
+    "dev:demo": "node scripts/dev.mjs --demo",
+    "build:renderer": "vite build --config renderer/vite.config.ts",
+    "build:electron": "node scripts/build-electron.mjs",
+    "start": "npm run build:renderer && npm run build:electron && electron .",
+    "smoke": "npm run build:renderer && npm run build:electron && PLANNER_DEMO=1 PLANNER_SELFTEST=/tmp/planner-smoke.png electron .",
+    "smoke:ui": "npm run seed && npm run build:renderer && npm run build:electron && node scripts/seed-fake-reminders.mjs /tmp/planner-fake-reminders.json && PLANNER_FAKE_REMINDERS=/tmp/planner-fake-reminders.json PLANNER_DEMO=1 PLANNER_NOTIFY_TIMEOUT_MS=300 PLANNER_SELFTEST=/tmp/planner-ui.png PLANNER_SELFTEST_SCRIPT=scripts/smoke-ui.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST=/tmp/planner-ui2.png PLANNER_SELFTEST_SCRIPT=scripts/smoke-restart.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST_QUICK_SCRIPT=scripts/smoke-quick.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST_TRAY=1 electron . && node scripts/quit-flow-check.mjs",
+    "check:quit": "node scripts/quit-flow-check.mjs",
+    "build": "npm run build:renderer && npm run build:electron && node scripts/make-icon.mjs --if-missing && electron-builder --mac dir --arm64 && node scripts/sign-app.mjs && node scripts/verify-package.mjs",
+    "install:app": "node scripts/install-app.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "make-signing-identity": "sh scripts/make-signing-identity.sh",
+    "smoke:package": "node scripts/smoke-package.mjs",
+    "build:mcp": "node scripts/build-mcp.mjs",
+    "mcp": "TALLY_MCP_EXPECT=real TALLY_MCP_DB=\"$HOME/Library/Application Support/todo-planner/planner.db\" tsx src/mcp/main.ts",
+    "mcp:demo": "TALLY_MCP_EXPECT=demo TALLY_MCP_DB=\"$HOME/Library/Application Support/todo-planner/demo.db\" tsx src/mcp/main.ts",
+    "mcp:config": "node scripts/mcp-config.mjs",
+    "smoke:mcp": "npm run seed && npm run build:mcp && npm run build:renderer && npm run build:electron && node scripts/mcp-smoke.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@napi-rs/keyring": "^2.1.2",
+    "better-sqlite3": "^13.0.3",
+    "chrono-node": "^2.10.3",
+    "google-auth-library": "^11.3.3",
+    "luxon": "^3.7.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/luxon": "^3.7.6",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  },
+  "private": true,
+  "main": "dist-electron/main.mjs",
+  "build": {
+    "appId": "local.todoplanner.planner",
+    "productName": "Tally",
+    "copyright": "Personal planner, built for local use",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist/renderer/**/*",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/better-sqlite3/prebuilds/{darwin-x64,linux-arm64,linux-x64,linuxmusl-arm64,linuxmusl-x64,win32-arm64,win32-x64}.node",
+      "!node_modules/better-sqlite3/{deps,src}/**"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Tally reads the open reminders in your \"Tally Inbox\" list in Reminders, turns each into a task, and marks it completed. It never touches any other list.",
+        "NSRemindersUsageDescription": "Tally reads the open reminders in your \"Tally Inbox\" list in Reminders, turns each into a task, and marks it completed. It never touches any other list."
+      },
+      "gatekeeperAssess": false
+    }
+  }
+}

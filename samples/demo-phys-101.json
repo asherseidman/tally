@@ -1,0 +1,9 @@
+{
+  "term": { "name": "DEMO Term", "start_date": "2026-08-31", "end_date": "2026-12-11" },
+  "items": [
+    { "course": "DEMO PHYS 101", "title": "Lab Report 1", "type": "project", "due_date": "2026-09-10", "grade_weight": 4, "confidence": "high", "estimated_minutes": 180 },
+    { "course": "DEMO PHYS 101", "title": "Reading: Chapter 2", "type": "reading", "due_date": "2026-09-08T09:00:00", "grade_weight": 0.5, "confidence": "medium", "estimated_minutes": 45 },
+    { "course": "DEMO PHYS 101", "title": "Exam 1", "type": "exam", "due_date": "2026-10-05T18:30:00", "grade_weight": 20, "confidence": "low", "source_quote": "Exam 1 sometime in early October" }
+  ],
+  "grading_breakdown": [{ "category": "Labs", "percent": 20 }, { "category": "Exams", "percent": 60 }, { "category": "Reading", "percent": 20 }]
+}

@@ -1,0 +1,24 @@
+{
+  "term": { "name": "Sample Term A", "start_date": "2026-08-31", "end_date": "2026-12-11" },
+  "items": [
+    { "course": "MATH 101", "title": "Homework 1", "type": "homework", "due_date": "2026-09-06", "grade_weight": 1.4,
+      "source_quote": "Homework is due Sundays at 11:59 PM", "confidence": "high", "expanded_from_recurring": true,
+      "notes": "Lowest homework score is dropped." },
+    { "course": "MATH 101", "title": "Homework 2", "type": "homework", "due_date": "2026-09-13", "grade_weight": 1.4,
+      "source_quote": "Homework is due Sundays at 11:59 PM", "confidence": "high", "expanded_from_recurring": true },
+    { "course": "MATH 101", "title": "Quiz 1", "type": "quiz", "due_date": "2026-09-18T10:00:00", "grade_weight": 5,
+      "source_quote": "Quiz 1 in lecture, Sept 18, 10:00 AM", "confidence": "high" },
+    { "course": "MATH 101", "title": "Midterm Exam", "type": "exam", "due_date": "2026-10-20T19:00:00", "grade_weight": 25,
+      "source_quote": "Midterm: Oct 20 (syllabus) / Oct 22 (schedule)", "confidence": "low",
+      "notes": "Syllabus and schedule disagree; used the schedule's date." },
+    { "course": "MATH 101", "title": "Final Project", "type": "project", "due_date": null, "grade_weight": 20,
+      "source_quote": "Final project due date TBA", "confidence": "low", "estimated_minutes": 600 }
+  ],
+  "grading_breakdown": [
+    { "category": "Homework", "percent": 15 },
+    { "category": "Quizzes", "percent": 10 },
+    { "category": "Midterm", "percent": 25 },
+    { "category": "Final Project", "percent": 20 },
+    { "category": "Final Exam", "percent": 30 }
+  ]
+}
