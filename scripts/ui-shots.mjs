@@ -1,5 +1,5 @@
 // UI screenshots for docs/ui, on a scratch DEMO database with a fixed fake fixture, in both themes.
-//   node scripts/ui-shots.mjs <label> [screen ...]     e.g. node scripts/ui-shots.mjs before today
+//   node scripts/ui-shots.mjs <label> [screen ...]     e.g. node scripts/ui-shots.mjs after today
 // Writes docs/ui/<label>-<screen>-<light|dark>.png at 1280 px wide. Nothing touches your real data or Google.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, copyFileSync } from 'node:fs';

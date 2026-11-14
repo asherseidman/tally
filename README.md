@@ -1,7 +1,13 @@
 # Tally
 
-(Repository: todo-planner.) 
 Personal to-do and planner for a university student. Electron desktop app (Phase 5) on its own SQLite database. No LLM calls and no API keys: Claude extracts syllabi separately into JSON files (see `docs/IMPORT_FORMAT.md`), and the app only imports them. Google Calendar (Phase 3) is the only external service.
+
+## Screenshots
+Both screenshots use the built-in demo database (note the DEMO banner): every course and task is made up.
+
+![Today screen: due soon, high grade impact and quick wins, with a running timer (demo data)](docs/ui/after-today-light.png)
+
+![Rates screen: per-group rates for time estimates (demo data)](docs/ui/after-rates-light.png)
 
 ## Status
 All five phases are complete: import + review/diff, a full CLI to-do app, Google Calendar scheduling, dependencies and views, and the Electron desktop app (screens, global quick-add shortcut, notifications, menu-bar timer, packaged macOS app). See `CLAUDE.md` for the decisions.
