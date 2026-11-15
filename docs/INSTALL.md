@@ -91,3 +91,5 @@ In Finder, choose **Go > Go to Folder...** (Shift-Command-G) and paste a path to
 **Where is the debug log?** `~/Library/Application Support/todo-planner/planner-debug.log` (a plain text file recording quitting and menu-bar icon steps). Include it when you report a problem, after removing anything you don't want to share.
 
 **The menu-bar icon is missing.** On a crowded menu bar, macOS can hide it. Tally also shows the running timer as a badge on its Dock icon.
+
+**Next: [Getting Started](GETTING_STARTED.md)**
