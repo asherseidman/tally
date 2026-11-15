@@ -11,7 +11,7 @@ The first-launch steps below were checked against Apple's current Mac User Guide
 
 ## 1. Download and install
 
-1. Open the **Releases** page of this repository and download `Tally-<version>-arm64.zip` from the newest release. Download the matching `.sha256` file too if you want to check it.
+1. Open the [Releases page](https://github.com/asherseidman/tally/releases) and download `Tally-<version>-arm64.zip` from the newest release. Download the matching `.sha256` file too if you want to check it.
 2. Double-click the zip to unzip it. You get **Tally.app**.
 3. Drag **Tally.app** into your **Applications** folder.
 
@@ -38,7 +38,7 @@ On these versions the older right-click trick no longer works, so use the steps 
 
 **macOS 13 Ventura and 14 Sonoma:** the same Privacy & Security steps work. The older shortcut also works here: Control-click (or right-click) **Tally.app**, choose **Open**, then click **Open** again.
 
-**Last resort, Terminal.** If the steps above do not work, you can remove the quarantine flag macOS put on the download. This turns off the first-launch check for this one app, so only do it for a file you downloaded from this repository's Releases page and checked above:
+**Last resort, Terminal.** If the steps above do not work, you can remove the quarantine flag macOS put on the download. This turns off the first-launch check for this one app, so only do it for a file you downloaded from this repository's [Releases page](https://github.com/asherseidman/tally/releases) and checked above:
 
 ```
 xattr -dr com.apple.quarantine /Applications/Tally.app
