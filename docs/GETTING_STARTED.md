@@ -17,7 +17,7 @@ Tally is a local planner that fits your assignments into your real free time. Ev
 - **Drag on empty time to paint** free hours. **Drag on green time to erase** it. (The first square you press decides which.)
 - With **Repeat weekly** ticked, your edits change the weekly template (every Monday, and so on). With it off they change only the dates you see; those days then say "this date only" with a **reset** link.
 - **Undo** (or Cmd+Z) reverses the last edit. **Copy to next week** copies this week's windows forward.
-- Leave out meals, the gym and sleep. Tally never places work outside the green.
+- Leave out meals, activities (gym, personal time, etc.), and sleep. Tally never places work outside the green.
 
 ![Availability grid with demo data](ui/after-availability-light.png)
 
