@@ -2,6 +2,8 @@
 
 Personal to-do and planner for a university student. Electron desktop app (Phase 5) on its own SQLite database. No LLM calls and no API keys: Claude extracts syllabi separately into JSON files (see `docs/IMPORT_FORMAT.md`), and the app only imports them. Google Calendar (Phase 3) is the only external service.
 
+**Installing on a Mac?** See the [install guide](docs/INSTALL.md) (Apple silicon, macOS 13 or later).
+
 ## Screenshots
 Both screenshots use the built-in demo database (note the DEMO banner): every course and task is made up.
 

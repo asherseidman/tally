@@ -28,7 +28,7 @@
     "smoke": "npm run build:renderer && npm run build:electron && PLANNER_DEMO=1 PLANNER_SELFTEST=/tmp/planner-smoke.png electron .",
     "smoke:ui": "npm run seed && npm run build:renderer && npm run build:electron && node scripts/seed-fake-reminders.mjs /tmp/planner-fake-reminders.json && PLANNER_FAKE_REMINDERS=/tmp/planner-fake-reminders.json PLANNER_DEMO=1 PLANNER_NOTIFY_TIMEOUT_MS=300 PLANNER_SELFTEST=/tmp/planner-ui.png PLANNER_SELFTEST_SCRIPT=scripts/smoke-ui.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST=/tmp/planner-ui2.png PLANNER_SELFTEST_SCRIPT=scripts/smoke-restart.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST_QUICK_SCRIPT=scripts/smoke-quick.js electron . && PLANNER_DEMO=1 PLANNER_SELFTEST_TRAY=1 electron . && node scripts/quit-flow-check.mjs",
     "check:quit": "node scripts/quit-flow-check.mjs",
-    "build": "npm run build:renderer && npm run build:electron && node scripts/make-icon.mjs --if-missing && electron-builder --mac dir --arm64 && node scripts/sign-app.mjs && node scripts/verify-package.mjs",
+    "build": "npm run build:renderer && npm run build:electron && node scripts/make-icon.mjs --if-missing && electron-builder --mac dir --arm64 --publish never && node scripts/sign-app.mjs && node scripts/verify-package.mjs",
     "install:app": "node scripts/install-app.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "make-signing-identity": "sh scripts/make-signing-identity.sh",

@@ -53,7 +53,8 @@ if (cfg) {
     check('it reads the same backup folder setting as the command line', cfg.backupFolderIsSaved && !!cfg.backupFolder, cfg.backupFolder);
     check('that folder is in iCloud Drive', cfg.backupFolderInICloud, cfg.backupFolderInICloud ? 'Mobile Documents/com~apple~CloudDocs' : 'not an iCloud path');
     check('and it exists, with backups in it', cfg.backupFolderExists && !!cfg.newestBackup, cfg.newestBackup ? `newest ${cfg.newestBackup.name}` : 'none found');
-  } else check('the real database exists', false, 'not found (first run?)');
+  } else if (process.env.CI) console.log('SKIP  real-database and backup-folder checks (CI runner has no personal data)');
+  else check('the real database exists', false, 'not found (first run?)');
 }
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed.');
 process.exit(failures ? 1 : 0);
