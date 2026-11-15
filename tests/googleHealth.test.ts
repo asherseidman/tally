@@ -271,9 +271,9 @@ describe('the status shown in Settings, Google', () => {
     const s = buildGoogleStatus(ctx.db, NOW, { ...base, tokenSaved: true, check: { ok: true } });
     expect(s).toMatchObject({ connected: true, message: 'Connected: Google accepted the saved sign-in.', needsReconnect: false, tokenAge: { days: 1 } });
   });
-  it('demo and a missing client file are unchanged', () => {
+  it('demo is unchanged, and a missing client file now says Google is simply not set up (Tally works without it)', () => {
     expect(buildGoogleStatus(ctx.db, NOW, { ...base, demo: true, tokenSaved: false }).message).toMatch(/simulated calendar/);
-    expect(buildGoogleStatus(ctx.db, NOW, { ...base, clientFileFound: false, tokenSaved: false }).message).toMatch(/client file is missing/);
+    expect(buildGoogleStatus(ctx.db, NOW, { ...base, clientFileFound: false, tokenSaved: false }).message).toMatch(/not set up.*works without it/);
   });
 });
 

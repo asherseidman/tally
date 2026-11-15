@@ -41,6 +41,16 @@
     if (!t || t.title !== 'SMOKE quick window homework' || t.timeAssumed) throw new Error('stored ' + JSON.stringify(t && [t.title, t.timeAssumed]));
     return done + '  stored due: ' + t.dueText;
   });
+  await step('the quick-add window uses the saved color scheme, follows a change live, then the scheme is reset to the default', async () => {
+    const bar = () => getComputedStyle(document.documentElement).getPropertyValue('--bar-bg').trim().toUpperCase();
+    await until(() => document.getElementById('tally-scheme'), 'the saved scheme (violet) in the quick window');
+    const violet = bar();
+    await inv('settings.set', { key: 'color_scheme', value: 'crimson' });
+    await until(() => bar() !== violet && document.getElementById('tally-scheme'), 'the quick window to follow a change with no restart');
+    await inv('settings.reset', { key: 'color_scheme' });
+    await until(() => !document.getElementById('tally-scheme'), 'the default back');
+    return violet + ' -> crimson -> default';
+  });
   await wait(1300); // the window closes itself shortly after an add
   return JSON.stringify(out);
 })()

@@ -2,7 +2,7 @@
 
 Personal to-do and planner for a university student. Electron desktop app (Phase 5) on its own SQLite database. No LLM calls and no API keys: Claude extracts syllabi separately into JSON files (see `docs/IMPORT_FORMAT.md`), and the app only imports them. Google Calendar (Phase 3) is the only external service.
 
-**Installing on a Mac?** See the [install guide](docs/INSTALL.md) (Apple silicon, macOS 13 or later).
+**Installing on a Mac?** See the [install guide](docs/INSTALL.md) (Apple silicon, macOS 13 or later). Want Google Calendar? See the [Google setup guide](docs/GOOGLE_SETUP.md).
 
 ## Screenshots
 Both screenshots use the built-in demo database (note the DEMO banner): every course and task is made up.
@@ -85,10 +85,10 @@ Google "Testing" mode tokens expire after 7 days; the app tells you to run `cale
 Tally talks to Google Calendar only if you set it up yourself. The repository does **not** include a Google OAuth client, and it never will: you need your own `google-client.json` from your own Google Cloud project.
 
 1. In the Google Cloud console, create a project, enable the Google Calendar API, and create an OAuth client of type **Desktop app**.
-2. Download its JSON and save it as `~/Library/Application Support/todo-planner/google-client.json` (outside the repo; keep it private, for example `chmod 600`). `google-client.json` is in `.gitignore` so it can't be committed by accident.
-3. Run `npm run plan -- calendar connect`. Your sign-in token is stored only in the macOS Keychain, never in a file.
+2. Download its JSON. In the app, open **Settings > Google > Set up Google Calendar** and press **Choose client file…**: Tally checks that it is a Desktop-app client and saves it (mode 600) as `~/Library/Application Support/todo-planner/google-client.json`, outside the repo. It shows only the last characters of the client ID and never the secret. (By hand also works: save the JSON there yourself. `google-client.json` is in `.gitignore`, and `tests/noClientSecret.test.ts` fails if a client file or secret ever gets into the repository or a build.)
+3. Press **Connect** in the same panel, or run `npm run plan -- calendar connect`. Your sign-in token is stored only in the macOS Keychain, never in a file.
 
-Without a client file the app still works fully on its own (tasks, lists, estimates, the demo's simulated calendar); only the Google features stay off. None of the author's data is included in this repository: there is no database, no calendar, no tokens and no real task data. The demo database, the samples in `samples/` and every test use made-up courses and tasks. Your own data lives in `~/Library/Application Support/todo-planner/` on your machine.
+Without a client file the app still works fully on its own (tasks, lists, estimates, the Availability grid and the scheduler, which then plan from your free windows alone, with no errors or reconnect prompts); only writing blocks to a calendar stays off (Apply says so). The step-by-step guide is [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md). None of the author's data is included in this repository: there is no database, no calendar, no tokens and no real task data. The demo database, the samples in `samples/` and every test use made-up courses and tasks. Your own data lives in `~/Library/Application Support/todo-planner/` on your machine.
 
 ## Dependencies, plans, views (Phase 4)
 ```
@@ -154,4 +154,4 @@ Quit Planner (menu-bar icon, "Quit Planner"), then drag `/Applications/Planner.a
 The app is called **Tally** (it was "Planner"). Only the product name changed: your data folder (`~/Library/Application Support/todo-planner`), `planner.db`, the iCloud backup folder, the Google client file, the Keychain entries, the settings and the "Planner Blocks" Google calendar keep their names, so nothing is orphaned. To remove the old app by hand: quit Planner (its menu-bar icon, "Quit Planner"), then drag `/Applications/Planner.app` to the Trash.
 
 ## Look and feel
-Michigan Blue and Maize, light and dark themes (Settings, General, Appearance: match the system, light or dark). Every text and control color pair is checked for WCAG AA in `tests/contrast.test.ts`. Screenshots: `docs/ui/` (`node scripts/ui-shots.mjs <label> today` takes them on a scratch demo database).
+Light and dark themes (Settings, General, Appearance: match the system, light or dark) and a **Color scheme** picker below it: eight presets (Blue and Maize is the default; Ocean, Forest, Crimson, Violet, Slate, Sunset, Graphite) or Custom (two color pickers plus hex fields). Each scheme is a primary and an accent color; Tally works out the full light and dark palettes from them and keeps every pair readable (text 4.5:1, controls 3:1, the accent only as a fill with readable text on it) by adjusting lightness. If custom colors cannot be made readable it says why and keeps your previous scheme. It is one setting (`color_scheme`: a preset id, or `{"primary":"#…","accent":"#…"}`) applied live to every window; Reset returns to the default. The app, menu-bar and Dock icons keep their fixed design. Course chip and status colors do not change (`src/app/colorScheme.ts`). Every text and control color pair, in every preset, in both themes, is checked for WCAG AA in `tests/contrast.test.ts`. Screenshots: `docs/ui/` (`node scripts/ui-shots.mjs <label> today` takes them on a scratch demo database).

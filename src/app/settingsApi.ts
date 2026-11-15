@@ -19,6 +19,7 @@ import { listBackups, createBackup, verifyBackup } from '../core/backup';
 import { backupFolderFor } from '../cli/context';
 import { CLAUDE_WRITES_KEY, CLAUDE_DELETES_KEY, CLAUDE_SCHEDULE_KEY, claudeWritesAllowed, claudeDeletesAllowed, claudeScheduleAllowed } from '../core/claudeAccess';
 import { listCalls } from '../core/connectorJobs';
+import { SCHEME_KEY, PRESETS, resolveScheme, schemeValue, deriveScheme, normalizeHex, DEFAULT_SCHEME_ID } from './colorScheme';
 import { setPublishStatus } from '../schedule/googleHealth';
 import { listChanges, undoChange } from '../core/changeLog';
 import { makeDtoBuilder } from './taskDto';
@@ -35,6 +36,8 @@ export interface AppHooks {
   setShortcut?(accelerator: string): void;
   /** apply the Appearance setting (system | light | dark) to every window */
   setTheme?(theme: Theme): void;
+  /** push a changed color scheme (the stylesheet text; '' = the default) to every open window, no restart */
+  setScheme?(css: string): void;
   /** apply a changed menu-bar setting right away */
   trayRefresh?(): void;
   /** whether the saved shortcut is currently registered with the system (it can fail at startup if another app took it) */
@@ -54,6 +57,9 @@ export interface AppHooks {
     check(): Promise<GoogleStatus>;
     connect(): Promise<GoogleStatus>;
     disconnect(): Promise<GoogleStatus>;
+    /** native open dialog, validate, save the client file (mode 600). A replacement needs confirmReplace. `cancelled` = the person closed the dialog. */
+    chooseClient?(confirmReplace: boolean): Promise<GoogleStatus & { cancelled?: boolean; notice?: string }>;
+    removeClient?(): Promise<GoogleStatus>;
   };
 }
 
@@ -99,6 +105,22 @@ export const THEMES: Theme[] = ['system', 'light', 'dark'];
 /** Appearance: follow the system (default) or force light or dark. */
 export const themeSetting = (d: ApiDeps): Theme => { const v = getSetting(d.ctx.db, 'theme'); return (THEMES as string[]).includes(v ?? '') ? (v as Theme) : 'system'; };
 
+/**
+ * The saved color scheme, fully validated. A saved value that no longer validates (hand-edited database) falls back to the
+ * default instead of breaking the window.
+ */
+export function schemeState(d: ApiDeps): { value: string; id: string; custom: boolean; primary: string; accent: string; css: string } {
+  const raw = getSetting(d.ctx.db, SCHEME_KEY);
+  const r = resolveScheme(raw);
+  const ok = r.ok ? r.scheme : (resolveScheme(DEFAULT_SCHEME_ID) as { ok: true; scheme: { choice: import('./colorScheme').SchemeChoice; css: string } }).scheme;
+  return { value: schemeValue(ok.choice), id: ok.choice.id, custom: ok.choice.kind === 'custom', primary: ok.choice.primary, accent: ok.choice.accent, css: ok.css };
+}
+/** For the Custom picker: would these two colors be accepted? (Nothing is saved.) */
+export function checkScheme(primary: string, accent: string): { ok: true; primary: string; accent: string } | { ok: false; reason: string } {
+  const r = deriveScheme(primary, accent);
+  return r.ok ? { ok: true, primary: normalizeHex(primary)!, accent: normalizeHex(accent)! } : { ok: false, reason: r.reason };
+}
+
 /** What the menu bar shows beside the icon: full (task + time), elapsed (time only), none (icon only). */
 export const trayText = (d: ApiDeps): TrayTextMode => { const v = getSetting(d.ctx.db, 'tray_text'); return (TRAY_TEXT_MODES as string[]).includes(v ?? '') ? (v as TrayTextMode) : 'full'; };
 
@@ -143,7 +165,7 @@ export function settingsView(d: ApiDeps): SettingsView {
   const folder = backupFolderFor(getSetting(ctx.db, 'backup_folder'), d.dbFile, d.demo);
   return {
     demo: d.demo, dbFile: d.dbFile,
-    general: { timezone: ctx.tz, defaultDueTime: ctx.defaultTime, quickAddShortcut: quickAddShortcut(d), quickAddShortcutDefault: DEFAULT_QUICK_ADD_SHORTCUT, quickAddShortcutActive: d.hooks?.shortcutActive?.() ?? null, trayText: trayText(d), theme: themeSetting(d) },
+    general: { timezone: ctx.tz, defaultDueTime: ctx.defaultTime, quickAddShortcut: quickAddShortcut(d), quickAddShortcutDefault: DEFAULT_QUICK_ADD_SHORTCUT, quickAddShortcutActive: d.hooks?.shortcutActive?.() ?? null, trayText: trayText(d), theme: themeSetting(d), colorScheme: { ...(({ css: _c, ...rest }) => rest)(schemeState(d)), presets: PRESETS } },
     scheduling: SCHEDULING.map((m) => item(m, value(m.key), builtin(m.key))),
     advanced,
     notifications: notificationItems(d),
@@ -178,6 +200,12 @@ export function setSettingValue(d: ApiDeps, key: string, value: string): Setting
     if (!(THEMES as string[]).includes(v)) throw new Error('Appearance must be system, light or dark.');
     setSetting(ctx.db, key, v);
     d.hooks?.setTheme?.(v as Theme);
+  } else if (key === SCHEME_KEY) {
+    // A preset id, or custom JSON. It is derived and contrast-checked BEFORE anything is saved: a refusal keeps the last valid scheme.
+    const r = resolveScheme(v);
+    if (!r.ok) throw new Error(r.reason);
+    setSetting(ctx.db, key, schemeValue(r.scheme.choice));
+    d.hooks?.setScheme?.(r.scheme.css);
   } else if (key === 'tray_text') {
     if (!(TRAY_TEXT_MODES as string[]).includes(v)) throw new Error('Menu bar text must be full, elapsed or none.');
     setSetting(ctx.db, key, v);
@@ -230,13 +258,14 @@ const getSettingNumber = (d: ApiDeps, key: string): number => Number(settingsVie
 
 /** Remove a saved value so the default applies again. */
 export function resetSettingValue(d: ApiDeps, key: string): SettingsView {
-  const allowed = [...SCHEDULING.map((m) => m.key), ...NUMERIC_KEYS, ...VIEW_KEYS, 'backup_folder', 'quick_add_shortcut', 'tray_text', 'theme', CLAUDE_WRITES_KEY, CLAUDE_DELETES_KEY, CLAUDE_SCHEDULE_KEY, ...NOTIFY_KEYS, INBOX_ENABLED_KEY, INBOX_LIST_KEY];
+  const allowed = [...SCHEDULING.map((m) => m.key), ...NUMERIC_KEYS, ...VIEW_KEYS, 'backup_folder', 'quick_add_shortcut', 'tray_text', 'theme', SCHEME_KEY, CLAUDE_WRITES_KEY, CLAUDE_DELETES_KEY, CLAUDE_SCHEDULE_KEY, ...NOTIFY_KEYS, INBOX_ENABLED_KEY, INBOX_LIST_KEY];
   if (!allowed.includes(key)) throw new Error(`"${key}" cannot be reset here (timezone and default due time always have a value).`);
   d.ctx.db.run('DELETE FROM settings WHERE key = ?', [key]);
   if (key === 'backup_folder') d.hooks?.setBackupFolder?.(backupFolderFor(undefined, d.dbFile, d.demo));
   if (key === 'quick_add_shortcut') d.hooks?.setShortcut?.(DEFAULT_QUICK_ADD_SHORTCUT);
   if (key === 'tray_text') d.hooks?.trayRefresh?.();
   if (key === 'theme') d.hooks?.setTheme?.('system');
+  if (key === SCHEME_KEY) d.hooks?.setScheme?.('');
   return settingsView(d);
 }
 
@@ -304,6 +333,17 @@ export async function restoreFrom(d: ApiDeps, name: string, typed: string): Prom
 export const googleHandlers = (d: ApiDeps, op: 'status' | 'check' | 'connect' | 'disconnect'): Promise<GoogleStatus> => {
   if (!d.hooks?.google) return Promise.resolve({ demo: d.demo, clientFile: null, clientFileFound: false, connected: false, message: d.demo ? 'Demo database: it uses a simulated calendar, so there is nothing to connect.' : 'Google is not available here.' });
   return d.hooks.google[op]();
+};
+
+export const googleClientHandlers = {
+  choose: (d: ApiDeps, confirmReplace: boolean) => {
+    if (!d.hooks?.google?.chooseClient) throw new Error(d.demo ? 'The demo database uses a simulated calendar, so there is nothing to set up.' : 'Choosing a client file is only available in the app window.');
+    return d.hooks.google.chooseClient(confirmReplace);
+  },
+  remove: (d: ApiDeps) => {
+    if (!d.hooks?.google?.removeClient) throw new Error('Removing the client file is only available in the app window.');
+    return d.hooks.google.removeClient();
+  },
 };
 
 // keep the unused import checker honest

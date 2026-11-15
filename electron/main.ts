@@ -4,7 +4,7 @@ import { getSetting } from '../src/db/repo';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { openContext, type CliContext } from '../src/cli/context';
-import { createCalendar, type CalendarHandle } from '../src/schedule/calendarFactory';
+import { createCalendar, noGoogleHandle, type CalendarHandle } from '../src/schedule/calendarFactory';
 import { dispatch, processConnectorJobs, inboxTick, seedPendingApplyForTest, type ApiDeps } from '../src/app/api';
 import type { AppHooks } from '../src/app/settingsApi';
 import type { GoogleStatus } from '../src/app/types';
@@ -15,6 +15,7 @@ import { JxaReminders } from '../src/phone/jxaReminders';
 import { FakeReminders } from '../src/phone/fakeReminders';
 import type { RemindersSource } from '../src/phone/reminders';
 import { KeychainSecretStore, CachedSecretStore } from '../src/schedule/secretStore';
+import { clientFileInfo, currentClientId, installClientFile, removeClientFile } from '../src/schedule/clientFile';
 import { OAuthTokenProvider, makeOAuthClient, connectInteractive, defaultClientFile, REFRESH_TOKEN_KEY, type HealthHooks } from '../src/schedule/auth';
 import { restoreBackup, autoBackupIfDue } from '../src/core/backup';
 import { runNotifications, loadNotifySettings, type Notice } from '../src/app/notifier';
@@ -58,10 +59,11 @@ const healthHooks: HealthHooks = {
 };
 const googleStatus = async (check: boolean): Promise<GoogleStatus> => {
   const clientFile = defaultClientFile();
-  const clientFileFound = existsSync(clientFile);
+  const info = clientFileInfo(clientFile);
+  const clientFileFound = info.found;
   const db = cx!.ctx.db;
-  const input = { demo, clientFile, clientFileFound };
-  if (demo || !clientFileFound) return buildGoogleStatus(db, new Date(), { ...input, tokenSaved: false });
+  const input = { demo: demo && !clientPanelTest, clientFile, clientFileFound, clientFileValid: info.valid, clientIdTail: info.idTail };
+  if (input.demo || !clientFileFound || !info.valid || (demo && clientPanelTest)) return buildGoogleStatus(db, new Date(), { ...input, tokenSaved: false });
   const token = await store.get(REFRESH_TOKEN_KEY).catch(() => undefined);
   if (!token || !check) return buildGoogleStatus(db, new Date(), { ...input, tokenSaved: !!token });
   try {
@@ -136,6 +138,11 @@ function applyShortcut(accel: string) {
 }
 
 // ---- desktop notifications ----
+/** Self-test only (demo database): drive the real client-file panel and the no-client behaviour; a pretend file picker answers the dialog. Real Google is never contacted. */
+const clientPanelTest = process.env.PLANNER_SELFTEST_GOOGLE_PANEL === '1' && demo && !!(process.env.PLANNER_SELFTEST || process.env.PLANNER_SELFTEST_SCRIPT)
+  && /^\/(private\/)?tmp\//.test(process.env.PLANNER_GOOGLE_CLIENT ?? ''); // the client file it may touch must be under /tmp: never the real one
+let testPick = process.env.PLANNER_SELFTEST_CHOOSE_FILE;
+
 // Under any self-test nothing touches the real desktop: a fake operating system stands in, and the timers stay off, so tests are deterministic and silent.
 const silent = !!(process.env.PLANNER_SELFTEST || process.env.PLANNER_SELFTEST_SCRIPT || process.env.PLANNER_SELFTEST_QUICK_SCRIPT || process.env.PLANNER_SELFTEST_TRAY || process.env.PLANNER_NO_OS_NOTIFICATIONS);
 let backupProblem: string | null = null;
@@ -403,6 +410,8 @@ const hooks: AppHooks = {
   openPrivacyPane: () => { void shell.openExternal(PRIVACY_PANE); },
   trayRefresh: () => { loadTrayTextMode(); refreshTray(true); },
   setTheme: (t) => applyTheme(t),
+  // a changed color scheme reaches every open window (main, quick-add) at once, with no restart
+  setScheme: (css) => { for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) void w.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent('planner:appearance', { detail: ${JSON.stringify(css)} }))`).catch(() => {}); },
   notifyTest: () => deliverer.test(),
   notifyCheck: notifyTick,
   notifyRecent: () => deliverer.records,
@@ -433,6 +442,43 @@ const hooks: AppHooks = {
       deliverer.dismissKind('google'); // the banner about the expired sign-in has done its job
       return googleStatus(true);
     },
+    chooseClient: async (confirmReplace) => {
+      if (demo && !clientPanelTest) throw new Error('The demo database uses a simulated calendar, so there is nothing to set up.');
+      const target = defaultClientFile();
+      const had = existsSync(target);
+      if (had && !confirmReplace) throw new Error('A Google client file is already set up. Confirm that you want to replace it first (you will need to reconnect).');
+      let picked: string | undefined;
+      if (clientPanelTest) picked = testPick; // a pretend picker; a script cannot click a native dialog
+      else {
+        const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+        const opts: Electron.OpenDialogOptions = { title: 'Choose your Google client file', message: 'Choose the Desktop-app client JSON you downloaded from Google Cloud.', properties: ['openFile'], filters: [{ name: 'Google client file (JSON)', extensions: ['json'] }], buttonLabel: 'Use this file' };
+        const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts);
+        if (r.canceled || !r.filePaths[0]) return { ...(await googleStatus(false)), cancelled: true };
+        picked = r.filePaths[0];
+      }
+      if (!picked) return { ...(await googleStatus(false)), cancelled: true };
+      const oldId = had ? currentClientId(target) : undefined;
+      const res = installClientFile(target, picked); // throws a plain-words error for a bad file; nothing is written then
+      calendar = undefined; // the next calendar request sees the new client
+      let notice = `Saved. Client ID ends in ${res.tail}.`;
+      if (had && !res.sameClient && oldId !== undefined) {
+        // a sign-in made with the old client cannot be used with the new one
+        const hadToken = !demo && !!(await store.get(REFRESH_TOKEN_KEY).catch(() => undefined));
+        if (!demo) { await store.delete(REFRESH_TOKEN_KEY).catch(() => {}); if (cx) forgetConnection(cx.ctx.db); }
+        deliverer.dismissKind('google');
+        notice += hadToken ? ' This is a different client, so the saved sign-in was removed: choose Connect to sign in again.' : ' This is a different client: choose Connect to sign in.';
+      } else if (had) notice += ' The sign-in made with this client ID is kept.';
+      trace('google client file replaced/saved (the file and its secret are never logged)');
+      return { ...(await googleStatus(false)), notice };
+    },
+    removeClient: async () => {
+      if (demo && !clientPanelTest) throw new Error('The demo database uses a simulated calendar, so there is nothing to remove.');
+      removeClientFile(defaultClientFile());
+      calendar = undefined;
+      if (!demo) { await store.delete(REFRESH_TOKEN_KEY).catch(() => {}); if (cx) forgetConnection(cx.ctx.db); }
+      deliverer.dismissKind('google');
+      return googleStatus(false);
+    },
     disconnect: async () => {
       if (!demo) { await store.delete(REFRESH_TOKEN_KEY); if (cx) forgetConnection(cx.ctx.db); deliverer.dismissKind('google'); }
       const s = await googleStatus(false);
@@ -449,7 +495,7 @@ async function deps(): Promise<ApiDeps> {
   const c = cx;
   return {
     ctx: c.ctx, dbFile: c.dbFile, demo: c.demo, backupFolder: c.backupFolder, hooks,
-    calendar: () => (calendar ??= createCalendar(c.ctx.tz, c.demo, store, healthHooks)),
+    calendar: () => (calendar ??= (clientPanelTest && !existsSync(defaultClientFile()) ? noGoogleHandle() : createCalendar(c.ctx.tz, c.demo, store, healthHooks))),
   };
 }
 
@@ -621,6 +667,11 @@ app.whenReady().then(async () => {
     if (channel === 'selftest.pendingApply') { // test only: never available outside a self-test on the demo database
       if (!silent || !demo) return { ok: false, error: 'Not available.' };
       try { return { ok: true, value: await seedPendingApplyForTest(await deps()) }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+    }
+    if (channel === 'selftest.chooseFile') { // test only: which file the pretend file picker returns next
+      if (!clientPanelTest) return { ok: false, error: 'Not available.' };
+      testPick = String((args as { path?: string } | undefined)?.path ?? '');
+      return { ok: true, value: null };
     }
     if (channel === 'selftest.googleProblem') { // test only: pretend Google rejected the saved sign-in (or clear that again)
       if (!silent || !demo) return { ok: false, error: 'Not available.' };

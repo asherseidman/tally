@@ -139,7 +139,7 @@ export async function computePlan(ctx: Ctx, calendar: CalendarClient, opts: Plan
   }
 
   const calendars = await calendar.listCalendars(); // first call: surfaces an expired connection early
-  for (const id of classIds) {
+  for (const id of calendar.unavailable ? [] : classIds) {
     if (!calendars.some((c) => c.id === id)) {
       throw new Error(`Class calendar "${id}" was not found. Available: ${calendars.map((c) => `${c.id} (${c.summary})`).join(', ') || '(none)'}`);
     }

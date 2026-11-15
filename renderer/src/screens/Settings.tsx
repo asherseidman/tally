@@ -86,6 +86,7 @@ function General({ s, onChange }: { s: SettingsView; onChange: (s: SettingsView)
         </div>
       </div>
       <Appearance s={s} onChange={onChange} />
+      <ColorScheme s={s} onChange={onChange} />
       <Shortcut s={s} onChange={onChange} />
       <MenuBarIcon s={s} onChange={onChange} />
       <ClaudeConnector s={s} onChange={onChange} />
@@ -296,19 +297,63 @@ function Google({ s }: { s: SettingsView }) {
   const run = async (what: string, p: Promise<GoogleStatus>) => { setBusy(what); setError(null); try { setG(await p); } catch (e) { setError(errText(e)); } finally { setBusy(null); } };
   const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   const needs = !!g?.needsReconnect;
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [clientMsg, setClientMsg] = useState<string | null>(null);
+  const [clientErr, setClientErr] = useState<string | null>(null);
+  async function chooseClient(replace: boolean) {
+    setConfirmReplace(false); setBusy('client'); setClientErr(null); setClientMsg(null);
+    try { const r = await api.googleChooseClient(replace); setG(r); if (r.notice) setClientMsg(r.notice); } catch (e) { setClientErr(errText(e)); } finally { setBusy(null); }
+  }
+  async function removeClient() {
+    setConfirmRemove(false); setBusy('client'); setClientErr(null); setClientMsg(null);
+    try { setG(await api.googleRemoveClient()); setClientMsg('The client file was removed. Tally works without Google Calendar.'); } catch (e) { setClientErr(errText(e)); } finally { setBusy(null); }
+  }
+  const hasClient = !!g?.clientFileFound;
   async function setStatus(v: string) { try { await api.setSetting('google_publish_status', v); setG(await api.googleStatus()); } catch (e) { setError(errText(e)); } }
   return (
     <section className="panelbox" aria-label="Google">
       <h3>Google Calendar</h3>
       <p className="hint">The app reads free/busy times from your calendars and writes ONLY to the “Planner Blocks” calendar it creates. The sign-in is stored in your OS keychain, never in a file.</p>
+      <div className="clientbox" data-testid="client-setup">
+        <h4>Set up Google Calendar</h4>
+        <p className="hint"><strong>Tally works without Google Calendar</strong>: painting your free time on the Availability grid is enough for planning. Calendar sync is optional, and it needs your own free Google client because Tally ships without one.</p>
+        <ol className="steps">
+          <li>In Google Cloud (console.cloud.google.com), create a project and turn on the Google Calendar API.</li>
+          <li>Set up the OAuth consent screen and add your own Google account as a test user.</li>
+          <li>Create credentials: OAuth client ID, Application type <strong>Desktop app</strong>. Download its JSON file.</li>
+          <li>Choose that file here, then press Connect below.</li>
+        </ol>
+        <p className="hint">Full walkthrough: docs/GOOGLE_SETUP.md in the Tally repository.</p>
+        <p data-testid="client-status" className="clientline">
+          <strong>Client file:</strong> {!g ? '…' : g.demo ? 'not used in the demo' : !g.clientFileFound ? 'not set' : g.clientFileValid === false ? 'found, but not a usable Desktop-app client' : `found, ID ends in ${g.clientIdTail ?? '…'}`}
+        </p>
+        {clientErr && <div className="note error" role="alert" data-testid="client-error">{clientErr}</div>}
+        {clientMsg && <div className="note ok" role="status" data-testid="client-notice">{clientMsg}</div>}
+        {confirmReplace && (
+          <div className="note warnbox" role="alertdialog" aria-label="Replace the client file" data-testid="client-replace-confirm">
+            Replace the current client file? Signing in again will be needed if the new file is a different client. Nothing changes until you pick a valid file.
+            <div className="toolbar"><button className="primary" onClick={() => void chooseClient(true)}>Yes, choose a new file…</button><button onClick={() => setConfirmReplace(false)}>Cancel</button></div>
+          </div>
+        )}
+        {confirmRemove && (
+          <div className="note warnbox" role="alertdialog" aria-label="Remove the client file" data-testid="client-remove-confirm">
+            Remove the client file? Google Calendar will stop working until you choose one again, and the saved sign-in is removed too.
+            <div className="toolbar"><button className="primary" onClick={() => void removeClient()}>Yes, remove it</button><button onClick={() => setConfirmRemove(false)}>Cancel</button></div>
+          </div>
+        )}
+        <div className="toolbar">
+          <button className={hasClient ? '' : 'primary'} disabled={!!busy || !g || g.demo} onClick={() => (hasClient ? setConfirmReplace(true) : void chooseClient(false))} data-testid="client-choose">{busy === 'client' ? 'Working…' : 'Choose client file…'}</button>
+          <button disabled={!!busy || !g || g.demo || !hasClient} onClick={() => setConfirmRemove(true)} data-testid="client-remove">Remove client file</button>
+        </div>
+      </div>
       {error && <div className="note error" role="alert">{error}</div>}
       {g && (
         <div className={`note ${g.connected && !g.problem ? 'ok' : g.problem ? 'error' : ''}`} data-testid="google-status" role={g.problem ? 'alert' : undefined}>
           <strong>{g.problem ? (g.problem.kind === 'client' ? 'Sign-in problem' : 'Sign-in expired') : g.connected ? 'Connected' : 'Not connected'}</strong>: {g.message}
-          {g.clientFile && <div className="hint">Client file: {g.clientFile} ({g.clientFileFound ? 'found' : 'missing'})</div>}
         </div>
       )}
-      {g && !g.demo && (
+      {g && !g.demo && hasClient && (
         <div className="hint" data-testid="google-age">
           {g.tokenAge ? <>This sign-in was made {when(g.tokenAge.connectedAt)} (<strong>{g.tokenAge.days < 1 ? 'less than a day' : `${g.tokenAge.days} day${g.tokenAge.days === 1 ? '' : 's'}`} old</strong>).</> : <>The age of this sign-in is not known (it was made before Tally kept track). Reconnect once and it will be tracked.</>}
           {g.testingNote && (
@@ -321,7 +366,7 @@ function Google({ s }: { s: SettingsView }) {
           )}
         </div>
       )}
-      <div className="toolbar">
+      {(hasClient || g?.demo) && <div className="toolbar">
         {needs ? <ReconnectButton onDone={() => api.googleStatus().then(setG)} testId="google-reconnect" /> : (
           <button className="primary" disabled={!!busy || !g || g.demo || !g.clientFileFound} onClick={() => run('connect', api.googleConnect())} data-testid="google-connect">{busy === 'connect' ? 'Waiting for Google sign-in in your browser…' : g?.connected ? 'Reconnect' : 'Connect'}</button>
         )}
@@ -333,8 +378,8 @@ function Google({ s }: { s: SettingsView }) {
             <button onClick={() => setConfirmOff(false)}>Cancel</button>
           </>
         ) : <button disabled={!!busy || !g || g.demo || !g.connected} onClick={() => setConfirmOff(true)}>Disconnect</button>}
-      </div>
-      {g && !g.demo && (
+      </div>}
+      {g && !g.demo && hasClient && (
         <div className="setrow" data-key="google_publish_status">
           <label htmlFor="set-google-publish">My Google Cloud project is</label>
           <div>
@@ -578,6 +623,74 @@ function MenuBarIcon({ s, onChange }: { s: SettingsView; onChange: (s: SettingsV
   );
 }
 
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+function ColorScheme({ s, onChange }: { s: SettingsView; onChange: (s: SettingsView) => void }) {
+  const { toast } = useApp();
+  const cs = s.general.colorScheme;
+  const [custom, setCustom] = useState(cs.custom);
+  const [primary, setPrimary] = useState(cs.primary);
+  const [accent, setAccent] = useState(cs.accent);
+  const [verdict, setVerdict] = useState<{ ok: boolean; reason?: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { setCustom(cs.custom); setPrimary(cs.primary); setAccent(cs.accent); }, [cs.value]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ask the engine, as the colors change, whether they would be accepted (nothing is saved)
+  useEffect(() => {
+    if (!custom) return;
+    if (!HEX.test(primary.trim()) || !HEX.test(accent.trim())) { setVerdict({ ok: false, reason: 'Type each color as a hex value like #1B4332 (3 or 6 digits).' }); return; }
+    let live = true;
+    const t = setTimeout(() => { api.checkScheme(primary, accent).then((r) => { if (live) setVerdict(r.ok ? { ok: true } : { ok: false, reason: r.reason }); }).catch((e) => { if (live) setVerdict({ ok: false, reason: errText(e) }); }); }, 150);
+    return () => { live = false; clearTimeout(t); };
+  }, [custom, primary, accent]);
+  async function save(value: string, what: string) {
+    try { onChange(await api.setSetting('color_scheme', value)); setErr(null); toast(`Color scheme: ${what}.`); } catch (e) { setErr(`${errText(e)} The previous color scheme is still in use.`); }
+  }
+  async function reset() {
+    try { onChange(await api.resetSetting('color_scheme')); setErr(null); toast('Color scheme reset to Blue and Maize.'); } catch (e) { setErr(errText(e)); }
+  }
+  const hexOf = (v: string) => (HEX.test(v.trim()) ? (v.trim().startsWith('#') ? v.trim() : `#${v.trim()}`) : null);
+  const pickerValue = (v: string) => { const h = hexOf(v); return h && h.length === 7 ? h : '#000000'; };
+  return (
+    <div className="setrow" data-key="color_scheme">
+      <span className="rowlabel" id="scheme-label">Color scheme</span>
+      <div>
+        <div className="scheme-grid" role="radiogroup" aria-labelledby="scheme-label" data-testid="scheme-grid">
+          {cs.presets.map((p) => (
+            <label key={p.id} className={`scheme-card ${!cs.custom && cs.id === p.id ? 'on' : ''}`} data-scheme={p.id}>
+              <input type="radio" name="scheme" value={p.id} checked={!cs.custom && cs.id === p.id} onChange={() => void save(p.id, p.name)} />
+              <span className="swatch" style={{ background: p.primary }} aria-hidden="true" /><span className="swatch" style={{ background: p.accent }} aria-hidden="true" />
+              <span className="scheme-name">{p.name}</span>
+              {!cs.custom && cs.id === p.id && <span className="scheme-check" aria-hidden="true">✓</span>}
+            </label>
+          ))}
+          <label className={`scheme-card ${custom ? 'on' : ''}`} data-scheme="custom">
+            <input type="radio" name="scheme" value="custom" checked={custom} onChange={() => setCustom(true)} />
+            <span className="swatch" style={{ background: hexOf(primary) ?? '#888' }} aria-hidden="true" /><span className="swatch" style={{ background: hexOf(accent) ?? '#ccc' }} aria-hidden="true" />
+            <span className="scheme-name">Custom</span>
+            {cs.custom && <span className="scheme-check" aria-hidden="true">✓</span>}
+          </label>
+        </div>
+        {custom && (
+          <div className="scheme-custom" data-testid="scheme-custom">
+            {([['Primary', primary, setPrimary], ['Accent', accent, setAccent]] as const).map(([label, value, set]) => (
+              <div className="scheme-pick" key={label}>
+                <label>{label} color{' '}<input type="color" aria-label={`${label} color picker`} value={pickerValue(value)} onChange={(e) => set(e.target.value.toUpperCase())} /></label>
+                <input type="text" aria-label={`${label} color hex`} value={value} maxLength={7} spellCheck={false} onChange={(e) => set(e.target.value)} className="hexfield" />
+              </div>
+            ))}
+            {verdict && !verdict.ok && <div className="note error" role="alert" data-testid="scheme-reason">{verdict.reason}</div>}
+            <div className="toolbar">
+              <button className="primary" disabled={!verdict?.ok} onClick={() => void save(JSON.stringify({ primary: hexOf(primary), accent: hexOf(accent) }), 'Custom')} data-testid="scheme-save">Use these colors</button>
+            </div>
+          </div>
+        )}
+        {err && <div className="note error" role="alert" data-testid="scheme-error">{err}</div>}
+        <div className="toolbar"><button disabled={!cs.custom && cs.id === 'blue-maize'} onClick={() => void reset()} data-testid="scheme-reset">Reset to default (Blue and Maize)</button></div>
+        <p className="hint">The primary color drives the top bar and buttons; the accent is used as a fill (underlines, highlights) with readable text on it. Light and dark versions are worked out for you, and every combination is checked for readability: if your colors cannot be made readable, Tally says why and keeps the scheme you had. The app icon, menu-bar icon and Dock icon keep their fixed design; this changes only the colors inside Tally’s windows. Course chip colors and status colors do not change.</p>
+      </div>
+    </div>
+  );
+}
+
 function Appearance({ s, onChange }: { s: SettingsView; onChange: (s: SettingsView) => void }) {
   const { toast } = useApp();
   const [err, setErr] = useState<string | null>(null);
@@ -592,7 +705,7 @@ function Appearance({ s, onChange }: { s: SettingsView; onChange: (s: SettingsVi
           <option value="system">Match the system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
         {err && <div className="note error" role="alert">{err}</div>}
-        <p className="hint">Light and dark themes in Michigan Blue and Maize. “Match the system” follows macOS (System Settings, Appearance).</p>
+        <p className="hint">“Match the system” follows macOS (System Settings, Appearance). The color scheme below works with all three.</p>
       </div>
     </div>
   );

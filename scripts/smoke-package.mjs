@@ -35,6 +35,11 @@ const t = launch({ PLANNER_SELFTEST_TRAY: '1' });
 const tt = grab(t.stdout, 'SMOKETRAY ')[0];
 if (tt) report('menu-bar icon', tt.steps); else { console.log('FAIL  menu-bar icon: no report\n' + (t.stdout + t.stderr).slice(0, 400)); failures++; }
 
+execFileSync('node', ['scripts/seed-fake-google-client.mjs'], { stdio: 'ignore' }); // FAKE client files under /tmp, and no saved client
+const gg = launch({ PLANNER_SELFTEST_GOOGLE_PANEL: '1', PLANNER_GOOGLE_CLIENT: '/tmp/planner-smoke-google/google-client.json', PLANNER_SELFTEST: '/tmp/planner-pkg-google.png', PLANNER_SELFTEST_SCRIPT: 'scripts/smoke-google.js' });
+const g = grab(gg.stdout, 'SMOKEUI ')[0];
+if (g) report('no Google client file / client-file panel', g.steps); else { console.log('FAIL  Google client panel: no report\n' + (gg.stdout + gg.stderr).slice(0, 400)); failures++; }
+
 const quit = spawnSync('node', ['scripts/quit-flow-check.mjs'], { env: { ...process.env, PLANNER_APP_BIN: bin }, encoding: 'utf8', timeout: 180000 });
 const results = [...quit.stdout.matchAll(/== choice: (\w+)[\s\S]*?RESULT: (PASS|FAIL)/g)].map((m) => `${m[1]}: ${m[2]}`);
 console.log(`${quit.status === 0 ? 'PASS' : 'FAIL'}  quit with a running timer (real process): ${results.join(', ')}`);

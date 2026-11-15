@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PRESETS, deriveScheme } from '../src/app/colorScheme';
 
 /** WCAG 2.x contrast, computed from the actual token values in renderer/src/styles.css (light block and dark block). */
 const css = readFileSync(join(__dirname, '..', 'renderer', 'src', 'styles.css'), 'utf8');
@@ -39,7 +40,7 @@ const UI: [string, string][] = [
   ['now', 'surface'], ['danger-fill', 'surface'], ['primary', 'surface'], ['busy-line', 'busy'], ['prop-line', 'prop'], ['tent-line', 'tent'], ['free-line', 'free'],
 ];
 
-describe.each([['light', light], ['dark', dark]] as const)('%s theme meets WCAG AA', (_name, t) => {
+function runPairs(t: Record<string, string>) {
   it.each(TEXT)('text %s on %s is at least 4.5:1', (fg, bg) => {
     expect(t[fg], `missing token --${fg}`).toBeTruthy();
     expect(t[bg], `missing token --${bg}`).toBeTruthy();
@@ -47,6 +48,19 @@ describe.each([['light', light], ['dark', dark]] as const)('%s theme meets WCAG 
   });
   it.each(UI)('control %s against %s is at least 3:1', (fg, bg) => {
     expect(ratio(t[fg], t[bg])).toBeGreaterThanOrEqual(3);
+  });
+}
+describe.each([['light', light], ['dark', dark]] as const)('%s theme meets WCAG AA', (_name, t) => { runPairs(t); });
+
+/** Every preset: the derived tokens sit on top of the static ones (status colors, chips and grid semantics stay fixed), exactly like the injected stylesheet. */
+describe.each(PRESETS)('color scheme $name', (preset) => {
+  const d = deriveScheme(preset.primary, preset.accent);
+  it('derives', () => { expect(d.ok).toBe(true); });
+  if (!d.ok) return;
+  describe.each([['light', { ...light, ...d.light }], ['dark', { ...dark, ...d.dark }]] as const)('%s meets WCAG AA', (_n, t) => { runPairs(t); });
+  it('uses the accent only as a fill with readable text on it, never as text on a light surface', () => {
+    expect(d.light['on-accent']).not.toBe(d.light.accent);
+    for (const k of ['text', 'text-muted', 'text-soft', 'link', 'focus']) expect(d.light[k].toUpperCase()).not.toBe(d.light.accent.toUpperCase());
   });
 });
 

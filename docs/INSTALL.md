@@ -57,7 +57,11 @@ After the first launch, Tally opens normally by double-click.
 
 Tally works without it. Without Google you paint your free time on the **Availability** grid and Tally plans around that. Calendar sync needs your own Google client (Tally does not ship one).
 
-Google Calendar setup guide: coming soon.
+Step-by-step: [Google Calendar setup guide](GOOGLE_SETUP.md).
+
+## Appearance
+
+Settings > General > Appearance has the light/dark switch, and below it a **Color scheme** picker: eight presets (the default is Blue and Maize) or Custom with two colors of your own. Tally works out the light and dark versions and keeps text readable; if your custom colors can't be made readable it says why and keeps your current scheme. The app, menu-bar and Dock icons keep their fixed design.
 
 ## Updating
 

@@ -22,6 +22,8 @@ export interface StatusInput {
   demo: boolean;
   clientFile: string;
   clientFileFound: boolean;
+  clientFileValid?: boolean;
+  clientIdTail?: string | null;
   /** a refresh token is saved in the keychain */
   tokenSaved: boolean;
   /** the result of actually asking Google (only for "Check connection") */
@@ -30,9 +32,10 @@ export interface StatusInput {
 
 /** The status shown in Settings, Google. A rejected sign-in is reported with its specific reason, not as a generic "not connected". */
 export function buildGoogleStatus(db: Db, now: Date, i: StatusInput): GoogleStatus {
-  const base = { demo: i.demo, clientFile: i.clientFile, clientFileFound: i.clientFileFound };
+  const base = { demo: i.demo, clientFile: i.clientFile, clientFileFound: i.clientFileFound, clientFileValid: i.clientFileValid, clientIdTail: i.clientIdTail ?? null };
   if (i.demo) return { demo: true, clientFile: null, clientFileFound: false, connected: false, message: 'Demo database: it uses a simulated calendar, so there is nothing to connect.' };
-  if (!i.clientFileFound) return { ...base, connected: false, message: `The Google client file is missing. Save your OAuth client JSON as ${i.clientFile} (see the README).`, ...healthExtras(db, now) };
+  if (!i.clientFileFound) return { ...base, connected: false, message: 'Google Calendar is not set up. Tally works without it: it plans from your Availability grid. To also write your planned blocks to a calendar, set it up below.' };
+  if (i.clientFileValid === false) return { ...base, connected: false, message: 'The saved Google client file is not a usable Desktop-app client. Choose a new one below, or remove it.' };
   const problem = currentProblem(db);
   if (!i.tokenSaved) {
     if (problem) return { ...base, connected: false, message: problemMessage(problem), ...healthExtras(db, now) };

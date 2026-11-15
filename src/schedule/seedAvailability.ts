@@ -60,7 +60,7 @@ export async function seedAvailability(ctx: Ctx, calendar: CalendarClient, opts:
   if (usesClassRule && !classIds.length) notes.push('There is no class calendar chosen, so weekdays that start "after the first class" use the default start time instead.');
   else if (usesClassRule) {
     const known = await calendar.listCalendars();
-    for (const id of classIds) if (!known.some((c) => c.id === id)) throw new Error(`Class calendar "${id}" was not found.`);
+    for (const id of calendar.unavailable ? [] : classIds) if (!known.some((c) => c.id === id)) throw new Error(`Class calendar "${id}" was not found.`);
     const fb = await calendar.freeBusy(classIds, start.toMillis(), end.plus({ days: 1 }).toMillis());
     classBusy = classIds.flatMap((id) => splitLongBusy(fb[id] ?? [], hours.ignore_busy_at_least_hours).kept);
   }

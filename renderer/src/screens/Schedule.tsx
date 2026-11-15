@@ -87,11 +87,12 @@ export function Schedule() {
         <button onClick={load} disabled={loading}>Refresh preview</button>
         <span className="spacer" />
         <label className="toggle"><input type="checkbox" checked={showTentative} onChange={(e) => setShowTentative(e.target.checked)} /> Show tentative</label>
-        <button className="primary" disabled={!p || loading || (p.willWrite === 0 && p.willRemove === 0)} onClick={() => { setApplyError(null); setConfirming(true); }}>
+        <button className="primary" disabled={!p || loading || !!p.calendarOff || (p.willWrite === 0 && p.willRemove === 0)} title={p?.calendarOff ? 'Set up Google Calendar in Settings > Google to write blocks to a calendar.' : undefined} onClick={() => { setApplyError(null); setConfirming(true); }}>
           {replan ? 'Replan…' : 'Apply…'}
         </button>
       </div>
       <PendingApplyCard state={pending.state} reload={pending.load} />
+      {p?.calendarOff && <p className="note" role="status" data-testid="schedule-no-google">Google Calendar is not set up, so this plan uses your Availability grid only and cannot be written to a calendar. Everything else works as usual. To also write blocks to a calendar, set it up in Settings &gt; Google.</p>}
       <p className="hint">{replan ? 'Replan: same as Schedule, and blocks you missed are re-placed. ' : ''}This is a PREVIEW. Nothing is written until you confirm. {where}</p>
 
       {loading && <p className="note" role="status">Planning… {info.demo ? '' : 'Reading your Google calendars can take several seconds.'}</p>}

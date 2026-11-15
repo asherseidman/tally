@@ -99,6 +99,8 @@ export const api = {
   setSetting: (key: string, value: string) => call<SettingsView>('settings.set', { key, value }),
   undoChange: (id: number) => call<SettingsView>('changes.undo', { id }),
   resetSetting: (key: string) => call<SettingsView>('settings.reset', { key }),
+  appearance: () => call<{ value: string; css: string }>('appearance.get'),
+  checkScheme: (primary: string, accent: string) => call<{ ok: true; primary: string; accent: string } | { ok: false; reason: string }>('appearance.check', { primary, accent }),
   testNotification: () => call<RecentNotice>('notifications.test'),
   banners: () => call<BannerDto[]>('banners.list'),
   dismissBanner: (id: number) => call<{ ok: true }>('banners.dismiss', { id }),
@@ -116,6 +118,8 @@ export const api = {
   googleStatus: () => call<GoogleStatus>('google.status'),
   googleCheck: () => call<GoogleStatus>('google.check'),
   googleConnect: () => call<GoogleStatus>('google.connect'),
+  googleChooseClient: (confirmReplace: boolean) => call<GoogleStatus & { cancelled?: boolean; notice?: string }>('google.chooseClient', { confirmReplace }),
+  googleRemoveClient: () => call<GoogleStatus>('google.removeClient', { confirm: true }),
   googleDisconnect: () => call<GoogleStatus>('google.disconnect'),
   dryRun: (days = 14) => call<DryRunResult>('schedule.dryRun', { days }),
 };

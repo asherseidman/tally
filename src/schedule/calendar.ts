@@ -21,6 +21,8 @@ export interface NewEvent {
  * name another calendar in a write.
  */
 export interface CalendarClient {
+  /** true for the stand-in used when no Google client file is set up: it reads as an empty calendar and cannot be written to */
+  readonly unavailable?: boolean;
   listCalendars(): Promise<CalendarInfo[]>;
   /** busy intervals per calendar id (free/busy only, no event details) */
   freeBusy(calendarIds: string[], fromMs: number, toMs: number): Promise<Record<string, Interval[]>>;

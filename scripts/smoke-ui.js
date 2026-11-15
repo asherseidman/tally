@@ -565,6 +565,57 @@
     return 'dark -> light -> system';
   });
 
+  await step('Settings: Color scheme presets and custom colors restyle the window live (light and dark), bad colors are refused, and the choice is saved', async () => {
+    const root = document.documentElement;
+    const v = (n) => getComputedStyle(root).getPropertyValue(n).trim().toUpperCase();
+    const grid = await until(() => document.querySelector('[data-testid=scheme-grid]'), 'the color scheme picker');
+    if (grid.querySelectorAll('[data-scheme]').length < 9) throw new Error('expected 8+ presets and Custom');
+    const pick = (id) => document.querySelector('[data-scheme=' + id + '] input').click();
+    setValue(document.querySelector('#set-theme'), 'light');
+    await until(() => !matchMedia('(prefers-color-scheme: dark)').matches, 'light');
+    await until(() => v('--bar-bg') === '#00274C', () => 'the default light top bar, got ' + v('--bar-bg') + ' (style element present: ' + !!document.getElementById('tally-scheme') + ')');
+    const base = v('--bar-bg');
+    if (base !== '#00274C' || document.getElementById('tally-scheme')) throw new Error('the default must be the plain stylesheet, got ' + base);
+    pick('forest');
+    await until(() => v('--bar-bg') !== base && document.getElementById('tally-scheme'), 'the forest scheme to apply');
+    const forest = v('--bar-bg'); const forestBg = v('--bg');
+    pick('ocean');
+    await until(() => v('--bar-bg') !== forest, 'the ocean scheme to apply');
+    if ((await inv('settings.get')).general.colorScheme.id !== 'ocean') throw new Error('not saved');
+    // light and dark both keep working for a scheme
+    setValue(document.querySelector('#set-theme'), 'dark');
+    await until(() => matchMedia('(prefers-color-scheme: dark)').matches && v('--bg') !== v('--surface') && getComputedStyle(document.body).backgroundColor !== 'rgb(246, 245, 241)', 'dark with the ocean scheme');
+    const darkBg = getComputedStyle(document.body).backgroundColor;
+    setValue(document.querySelector('#set-theme'), 'light');
+    await until(() => !matchMedia('(prefers-color-scheme: dark)').matches && getComputedStyle(document.body).backgroundColor !== darkBg, 'light again');
+    if (v('--bg') === forestBg) throw new Error('ocean should not look like forest');
+    // custom: an accent that cannot be made readable is refused with the reason and the last scheme is kept
+    pick('custom');
+    const hex = (label) => document.querySelector('input[aria-label="' + label + ' color hex"]');
+    await until(() => hex('Accent'), 'the custom pickers');
+    setValue(hex('Primary'), '#1B4332'); setValue(hex('Accent'), '#0A0A0A');
+    const why = (await until(() => document.querySelector('[data-testid=scheme-reason]'), 'the reason')).textContent;
+    if (!/too dark/.test(why) || !document.querySelector('[data-testid=scheme-save]').disabled) throw new Error('expected a refusal with a reason: ' + why);
+    const direct = await window.planner.invoke('settings.set', { key: 'color_scheme', value: JSON.stringify({ primary: '#1B4332', accent: '#0A0A0A' }) });
+    if (direct.ok) throw new Error('the engine accepted an unreadable scheme');
+    if ((await inv('settings.get')).general.colorScheme.id !== 'ocean') throw new Error('the last valid scheme was not kept');
+    setValue(hex('Accent'), 'nonsense');
+    await until(() => /hex value/.test(document.querySelector('[data-testid=scheme-reason]')?.textContent ?? ''), 'the hex hint');
+    // a valid custom pair applies
+    setValue(hex('Accent'), '#F4A261');
+    await until(() => !document.querySelector('[data-testid=scheme-save]').disabled, 'Use these colors to enable');
+    click(document.querySelector('[data-testid=scheme-save]'));
+    await until(() => v('--accent') === '#F4A261', () => 'the custom accent, got ' + v('--accent'));
+    const cs = (await inv('settings.get')).general.colorScheme;
+    if (!cs.custom || cs.accent !== '#F4A261') throw new Error(JSON.stringify(cs));
+    // finish on a preset and LEAVE it: the restart check and the quick-add window check it, and the second one resets it
+    pick('violet');
+    await until(() => v('--bar-bg') !== base && document.querySelector('[data-scheme=violet] input').checked, 'violet');
+    setValue(document.querySelector('#set-theme'), 'system');
+    await wait(300);
+    return 'forest -> ocean (light and dark) -> bad custom refused (' + why.slice(0, 40) + '...) -> custom -> violet';
+  });
+
   await step('Settings: the menu-bar icon section explains itself and the text mode is a saved setting', async () => {
     const box = await until(() => document.querySelector('[data-testid=tray-info]'), 'the menu bar section');
     // (the UI harness runs without a tray, so it reports that honestly)

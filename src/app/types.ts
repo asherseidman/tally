@@ -127,6 +127,8 @@ export interface SchedulePreview extends DryRunResult {
   /** the calendar is the simulated one (demo database) */
   simulated: boolean;
   demo: boolean;
+  /** no Google client file is set up: this plan uses your availability windows only and cannot be written to a calendar */
+  calendarOff?: boolean;
   calendarName: string;
   /** identifies this exact plan; apply refuses if the plan has changed since */
   fingerprint: string;
@@ -232,7 +234,7 @@ export interface SettingItem {
 export interface SettingsView {
   demo: boolean;
   dbFile: string;
-  general: { timezone: string; defaultDueTime: string; quickAddShortcut: string; quickAddShortcutDefault: string; quickAddShortcutActive: boolean | null; trayText: 'full' | 'elapsed' | 'none'; theme: 'system' | 'light' | 'dark' };
+  general: { timezone: string; defaultDueTime: string; quickAddShortcut: string; quickAddShortcutDefault: string; quickAddShortcutActive: boolean | null; trayText: 'full' | 'elapsed' | 'none'; theme: 'system' | 'light' | 'dark'; colorScheme: ColorSchemeView };
   scheduling: SettingItem[];
   advanced: SettingItem[];
   notifications: SettingItem[];
@@ -265,10 +267,20 @@ export interface BackupsView {
   isDefault: boolean;
   backups: { name: string; takenAt: string; bytes: number; ageHours: number }[];
 }
+/** The saved color scheme and the presets to choose from (colors only; the app and tray icons keep their fixed design). */
+export interface ColorSchemeView {
+  /** what is stored: a preset id, or custom JSON */
+  value: string; id: string; custom: boolean; primary: string; accent: string;
+  presets: { id: string; name: string; primary: string; accent: string }[];
+}
 export interface GoogleStatus {
   demo: boolean;
   clientFile: string | null;
   clientFileFound: boolean;
+  /** the file is a usable Desktop-app client (false if it exists but is not) */
+  clientFileValid?: boolean;
+  /** the END of the client ID (e.g. …1234); the secret is never returned */
+  clientIdTail?: string | null;
   connected: boolean;
   message: string;
   /** Google rejected the saved sign-in and signing in again fixes it (the Reconnect button) */

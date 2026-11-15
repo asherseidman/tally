@@ -24,10 +24,11 @@ import { SIZE_UNITS } from '../core/size';
 import { ratesHandlers } from './ratesApi';
 import { parseQuickAdd } from '../core/quickAdd';
 import { claudeScheduleAllowed } from '../core/claudeAccess';
+import { NOT_SET_UP_MESSAGE } from '../schedule/noCalendar';
 import { ReconnectRequiredError } from '../schedule/googleCalendar';
 import { currentProblem, problemMessage, classifyCode } from '../schedule/googleHealth';
 import { getJob, setJob, expireJobs, requestedJobs, openApply, latestApply, inputsHash, type Job } from '../core/connectorJobs';
-import { notifyHandlers, undoRecordedChange, settingsView, setSettingValue, resetSettingValue, termRows, termHandlers, backupsView, backupNow, restoreFrom, googleHandlers, type AppHooks } from './settingsApi';
+import { notifyHandlers, undoRecordedChange, settingsView, schemeState, checkScheme, setSettingValue, resetSettingValue, termRows, termHandlers, backupsView, backupNow, restoreFrom, googleHandlers, googleClientHandlers, type AppHooks } from './settingsApi';
 import { startReview, toggleEntry, editEntry, closeReview, applyReview } from './importReview';
 import { makeDtoBuilder, type TaskDto } from './taskDto';
 import { checkPin, createPin, movePin, removePin, getPin, pinsForPlan } from '../schedule/pins';
@@ -51,7 +52,7 @@ export interface ApiDeps {
   backupFolder: string;
   /** lazily creates the calendar client (Google, or simulated for the demo database) */
   hooks?: AppHooks;
-  calendar: () => { calendar: CalendarClient; classCalendarIds?: string[]; simulated?: boolean };
+  calendar: () => { calendar: CalendarClient; classCalendarIds?: string[]; simulated?: boolean; unavailable?: boolean };
 }
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => DateTime.fromISO(s).isValid, 'not a real date');
@@ -311,6 +312,9 @@ export const handlers: Record<string, Handler> = {
 
   // Settings (same validation as `config set`; the main process supplies the hooks that need Electron)
   'settings.get': (d): SettingsView => settingsView(d),
+  // Color scheme: every window asks for the stylesheet text to inject ('' = the built-in default); the Custom picker asks whether two colors would be accepted.
+  'appearance.get': (d) => { const s = schemeState(d); return { value: s.value, css: s.css }; },
+  'appearance.check': (d, a) => { const p = z.object({ primary: z.string().max(40), accent: z.string().max(40) }).parse(a); return checkScheme(p.primary, p.accent); },
   'settings.set': (d, a): SettingsView => { const p = z.object({ key: z.string(), value: z.string() }).parse(a); return setSettingValue(d, p.key, p.value); },
   'changes.undo': (d, a): SettingsView => undoRecordedChange(d, z.object({ id: z.number().int().positive() }).parse(a).id),
   'settings.reset': (d, a): SettingsView => resetSettingValue(d, z.object({ key: z.string() }).parse(a).key),
@@ -332,6 +336,9 @@ export const handlers: Record<string, Handler> = {
   'google.check': (d) => googleHandlers(d, 'check'),
   'google.connect': (d) => googleHandlers(d, 'connect'),
   'google.disconnect': (d) => googleHandlers(d, 'disconnect'),
+  // The client file (the app ships without one): the open dialog runs in the main process; the renderer never sees the file or its secret.
+  'google.chooseClient': (d, a) => googleClientHandlers.choose(d, z.object({ confirmReplace: z.boolean().default(false) }).parse(a ?? {}).confirmReplace),
+  'google.removeClient': (d, a) => { z.object({ confirm: z.literal(true, { error: 'Removing the client file needs an explicit confirmation.' }) }).parse(a ?? {}); return googleClientHandlers.remove(d); },
 
   'availability.week': (d, a) => buildWeek(d.ctx, z.object({ date }).parse(a).date),
 
@@ -417,7 +424,7 @@ export const handlers: Record<string, Handler> = {
     const { moved, missedCount } = previewMoves(d.ctx, r, replan);
     const trims = previewTrims(d.ctx, r);
     return {
-      ...planDto(d, r), replan, days, simulated: c.simulated ?? d.demo, demo: d.demo,
+      ...planDto(d, r), replan, days, simulated: c.simulated ?? d.demo, demo: d.demo, ...(c.unavailable ? { calendarOff: true } : {}),
       calendarName: PLANNER_CALENDAR_NAME, fingerprint: planFingerprint(r, replan),
       willRemove: previewRemoveCount(d.ctx, r, replan), willWrite: r.blocks.length, missedCount,
       trims: { heading: trimHeading(true), lines: trimLines(r, trims), count: trims.length },
@@ -433,6 +440,7 @@ export const handlers: Record<string, Handler> = {
   'schedule.apply': async (d, a): Promise<ScheduleApplied> => {
     const p = scheduleArgs.extend({ confirm: z.literal(true, { error: 'Applying needs an explicit confirmation.' }), fingerprint: z.string().min(1) }).parse(a);
     const c = d.calendar();
+    if (c.unavailable) throw new Error(NOT_SET_UP_MESSAGE);
     if ((c.simulated ?? d.demo) && !d.demo) throw new Error('Refusing to apply: this is a simulated calendar.');
     const r = await computePlan(d.ctx, c.calendar, { days: p.days, classCalendarIds: c.classCalendarIds });
     if (planFingerprint(r, p.replan) !== p.fingerprint) throw new Error('The plan changed since you previewed it (time passed, or something was edited). Nothing was written. Review the new preview and apply again.');

@@ -39,7 +39,7 @@ describe('settings api', () => {
 
   it('general: timezone and default due time are validated, saved and take effect immediately', async () => {
     const d = deps();
-    expect((await ok(d, 'settings.get')).general).toEqual({ timezone: 'America/Detroit', defaultDueTime: '23:59', quickAddShortcut: 'CommandOrControl+Shift+Space', quickAddShortcutDefault: 'CommandOrControl+Shift+Space', quickAddShortcutActive: null, trayText: 'full', theme: 'system' });
+    expect((await ok(d, 'settings.get')).general).toEqual({ timezone: 'America/Detroit', defaultDueTime: '23:59', quickAddShortcut: 'CommandOrControl+Shift+Space', quickAddShortcutDefault: 'CommandOrControl+Shift+Space', quickAddShortcutActive: null, trayText: 'full', theme: 'system', colorScheme: expect.objectContaining({ id: 'blue-maize', custom: false }) });
     expect(await fail(d, 'settings.set', { key: 'timezone', value: 'Mars/Olympus' })).toMatch(/Invalid IANA timezone/);
     expect(await fail(d, 'settings.set', { key: 'default_due_time', value: '25:00' })).toMatch(/HH:mm/);
     const v = await ok(d, 'settings.set', { key: 'timezone', value: 'America/Chicago' });
